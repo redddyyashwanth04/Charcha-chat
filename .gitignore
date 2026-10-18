@@ -1,0 +1,10 @@
+.env
+*.db
+__pycache__/
+.venv/
+node_modules/
+dist/
+.pytest_cache/
+.ruff_cache/
+.coverage
+C:\Users\yashw\Downloads\doubtchat\doubtchat\backend\.env
