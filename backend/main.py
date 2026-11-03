@@ -5,12 +5,12 @@ prompted separately. A doubt thread is attached to ONE assistant message, and
 the model only sees that message (plus the question that produced it) as
 context, never the whole chat. Doubts never pollute the main conversation.
 """
+
 import json
 import os
 import sqlite3
 import time
 from contextlib import contextmanager
-from typing import Optional
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
@@ -75,8 +75,7 @@ def get_db():
 
 def init_db():
     with get_db() as conn:
-        conn.executescript(
-            """
+        conn.executescript("""
             CREATE TABLE IF NOT EXISTS conversations (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 title TEXT NOT NULL,
@@ -97,8 +96,7 @@ def init_db():
                 quote TEXT,
                 created_at REAL NOT NULL
             );
-            """
-        )
+            """)
 
 
 init_db()
@@ -122,9 +120,7 @@ def stream_llm(system: str, turns: list[tuple[str, str]]):
     from google.genai import types
 
     client = genai.Client(api_key=API_KEY)
-    contents = [
-        types.Content(role=role, parts=[types.Part(text=text)]) for role, text in turns
-    ]
+    contents = [types.Content(role=role, parts=[types.Part(text=text)]) for role, text in turns]
     stream = client.models.generate_content_stream(
         model=MODEL,
         contents=contents,
@@ -139,7 +135,7 @@ def event(obj: dict) -> str:
     return json.dumps(obj) + "\n"  # NDJSON: one JSON event per line
 
 
-def with_quote(question: str, quote: Optional[str]) -> str:
+def with_quote(question: str, quote: str | None) -> str:
     if quote:
         return f'(Regarding this passage: "{quote}")\n\n{question}'
     return question
@@ -152,7 +148,7 @@ class ChatIn(BaseModel):
 
 class DoubtIn(BaseModel):
     question: str
-    quote: Optional[str] = None
+    quote: str | None = None
 
 
 # ---------- conversations ----------
@@ -214,9 +210,7 @@ def chat(cid: int, body: ChatIn):
         )
         user_id = cur.lastrowid
         if conv["title"] == "New chat":
-            conn.execute(
-                "UPDATE conversations SET title = ? WHERE id = ?", (text[:50], cid)
-            )
+            conn.execute("UPDATE conversations SET title = ? WHERE id = ?", (text[:50], cid))
         history = conn.execute(
             "SELECT role, content FROM messages WHERE conversation_id = ? ORDER BY id",
             (cid,),
@@ -241,7 +235,8 @@ def chat(cid: int, body: ChatIn):
             return
         with get_db() as conn:
             cur = conn.execute(
-                "INSERT INTO messages (conversation_id, role, content, created_at) VALUES (?,?,?,?)",
+                "INSERT INTO messages (conversation_id, role, content, created_at) "
+                "VALUES (?,?,?,?)",
                 (cid, "assistant", full, time.time()),
             )
             aid = cur.lastrowid
@@ -313,7 +308,8 @@ def ask_doubt(mid: int, body: DoubtIn):
         if full:
             with get_db() as conn:
                 cur = conn.execute(
-                    "INSERT INTO doubts (message_id, role, content, quote, created_at) VALUES (?,?,?,?,?)",
+                    "INSERT INTO doubts (message_id, role, content, quote, created_at) "
+                    "VALUES (?,?,?,?,?)",
                     (mid, "assistant", full, None, time.time()),
                 )
                 did = cur.lastrowid
